@@ -1,0 +1,55 @@
+public class compliance {
+    public static void setAccountsInactive(List<Account> accNewList) {
+        for (Account acc : accNewList) {
+            acc.Active__c = false;
+        }
+    }
+    public static void isActiveValidation(List<Account> accNewList) {
+        
+        Map<Id, Account> accTeamMemberMap = new Map<Id, Account>([SELECT Id, (SELECT Member_Type__c FROM Team_Members__r) FROM Account WHERE Id = :accNewList]); 
+        
+        for(Account acc : accNewList) {
+            
+            if(acc.Active__c) {
+                Boolean hasAdmin = false;
+                Boolean hasHR = false;
+                
+                for(SQX_Team_Members__c teamMember : accTeamMemberMap.get(acc.Id).Team_Members__r) {
+                    
+                    if(teamMember.Member_Type__c == 'HR') {
+                        hasHR = true;
+                    }
+                    
+                    if(teamMember.Member_Type__c == 'Admin') {
+                        hasAdmin = true;
+                    }
+                }
+                
+                if(!hasHR || !hasAdmin) {
+                    acc.addError('You cannot activate this account');
+                }
+            }
+        }
+    }
+    public static void createTeamMembers(List<Account> accountList) {
+        List<SQX_Team_Members__c> teamMembers = new List<SQX_Team_Members__c>();
+        
+        for (Account acc : accountList) {
+            teamMembers.add(new SQX_Team_Members__c(
+                Name = 'Team Member 1',
+                Account__c = acc.Id,
+                Contact_Info__c = '',
+                Member_Type__c = ''
+            ));
+            
+            teamMembers.add(new SQX_Team_Members__c(
+                Name = 'Team Member 2',
+                Account__c = acc.Id,               
+                Contact_Info__c = '',
+                Member_Type__c = ''
+            ));
+        }
+        
+        insert teamMembers;
+    }
+}
