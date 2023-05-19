@@ -1,0 +1,86 @@
+@isTest
+public class ComplianceTest {
+    @isTest
+    public static void testSetAccountsInactive() {
+        List<Account> accounts = new List<Account>();
+        for (Integer i = 0; i < 5; i++) {
+            accounts.add(new Account(Name = 'Test Account ' + i, Active__c = true));
+        }
+        
+        insert accounts;
+        
+        compliance.setAccountsInactive(accounts);
+        
+        for (Account acc : accounts) {
+            System.assertEquals(false, acc.Active__c, 'Account should be set as inactive');
+        }
+    }
+     @isTest
+    public static void testIsActiveValidation() {
+        // Create test accounts
+        List<Account> accounts = new List<Account>();
+        Account account1 = new Account(Name = 'Test Account 1', Active__c = true);
+        Account account2 = new Account(Name = 'Test Account 2', Active__c = true);
+        Account account3 = new Account(Name = 'Test Account 3', Active__c = false);
+        accounts.add(account1);
+        accounts.add(account2);
+        accounts.add(account3);
+        insert accounts;
+        
+        // Create test team members
+        List<SQX_Team_Members__c> teamMembers = new List<SQX_Team_Members__c>();
+        teamMembers.add(new SQX_Team_Members__c(Account__c = account1.Id, Member_Type__c = 'HR'));
+        teamMembers.add(new SQX_Team_Members__c(Account__c = account1.Id, Member_Type__c = 'Admin'));
+        teamMembers.add(new SQX_Team_Members__c(Account__c = account2.Id, Member_Type__c = 'HR'));
+        teamMembers.add(new SQX_Team_Members__c(Account__c = account3.Id, Member_Type__c = 'Admin'));
+        insert teamMembers;
+        
+        Test.startTest();
+        compliance.isActiveValidation(accounts);
+        Test.stopTest();
+        
+        // Verify the results
+        for (Account acc : accounts) {
+            if (acc.Name == 'Test Account 1') {
+                System.assertEquals(false, acc.hasErrors(), 'Account 1 should have no errors');
+            } else if (acc.Name == 'Test Account 2') {
+                System.assertEquals(true, acc.hasErrors(), 'Account 2 should have errors');
+            } else if (acc.Name == 'Test Account 3') {
+                System.assertEquals(false, acc.hasErrors(), 'Account 3 should have no errors');
+            }
+        }
+    }
+    @isTest
+    public static void testCreateTeamMembers() {
+        // Create test accounts
+        List<Account> accounts = new List<Account>();
+        Account account1 = new Account(Name = 'Test Account 1', Active__c = true);
+        Account account2 = new Account(Name = 'Test Account 2', Active__c = true);
+        accounts.add(account1);
+        accounts.add(account2);
+        insert accounts;
+        
+        Test.startTest();
+        compliance.createTeamMembers(accounts);
+        Test.stopTest();
+        
+        // Verify that team members are created for each account
+        List<SQX_Team_Members__c> teamMembers = [SELECT Name, Account__c, Contact_Info__c, Member_Type__c FROM SQX_Team_Members__c];
+        
+        System.assertEquals(4, teamMembers.size(), 'Incorrect number of team members created');
+        
+        Set<Id> accountIds = new Set<Id>();
+        for (Account acc : accounts) {
+            accountIds.add(acc.Id);
+        }
+        
+        Set<String> expectedNames = new Set<String>{'Team Member 1', 'Team Member 2'};
+        
+        for (SQX_Team_Members__c teamMember : teamMembers) {
+            System.assertEquals('', teamMember.Contact_Info__c, 'Contact Info should be blank');
+            System.assertEquals('', teamMember.Member_Type__c, 'Member Type should be blank');
+            System.assert(accountIds.contains(teamMember.Account__c), 'Invalid Account reference');
+            System.assert(expectedNames.contains(teamMember.Name), 'Unexpected team member name');
+        }
+    }
+}
